@@ -19,7 +19,7 @@ public interface MQTTCallback {
 	public void messageArrived(String topic, MqttMessage message) throws Exception;
 	
 	/**
-	 * 断线重连后的处理
+	 * 断线重连后的处理（含首次连接）
 	 */
 	public void afterReconnect();
 	

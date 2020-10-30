@@ -8,9 +8,15 @@ public interface MQTTHelper {
 	
 	/**
 	 * 更新配置
-	 * @param config
+	 * @param config 连接配置
 	 */
-	public void updateConfig(MQTTConfig config, MQTTCallback callback);
+	public void updateConfig(MQTTConfig config);
+	
+	/**
+	 * 更新回调
+	 * @param callback
+	 */
+	public void updateCallback(MQTTCallback callback);
 	
 	/**
 	 * 是否已连接
@@ -20,15 +26,27 @@ public interface MQTTHelper {
 	
 	/**
 	 * 连接
+	 * @throws MqttSecurityException
+	 * @throws MqttException
+	 * @throws Exception
 	 */
 	public void connect() throws MqttSecurityException, MqttException, Exception;
 	
 	/**
+	 * 启动线程，轮询配置
+	 * 线程停止条件：直至发现有一次成功的连接
+	 */
+	public void startWaitForConn();
+	
+	/**
 	 * 连接
 	 * @param config
+	 * @throws MqttSecurityException
+	 * @throws MqttException
+	 * @throws Exception
 	 */
-	default public void connect(MQTTConfig config, MQTTCallback callback) throws MqttSecurityException, MqttException, Exception {
-		this.updateConfig(config, callback);
+	default public void connect(MQTTConfig config) throws MqttSecurityException, MqttException, Exception {
+		this.updateConfig(config);
 		this.connect();
 	}
 	

@@ -17,8 +17,13 @@ public class MQTTHelperImpl implements MQTTHelper {
 	private static final Logger logger = LoggerFactory.getLogger(MQTTHelper.class);
 
 	@Override
-	public void updateConfig(MQTTConfig config, MQTTCallback callback) {
-		this.client.updateConfig(config, callback);
+	public void updateConfig(MQTTConfig config) {
+		this.client.updateConfig(config);
+	}
+	
+	@Override
+	public void updateCallback(MQTTCallback callback) {
+		Global.callback = callback;
 	}
 
 	@Override
@@ -65,5 +70,9 @@ public class MQTTHelperImpl implements MQTTHelper {
 			this.client.unsubscribe(topic);
 		}
 	}
-	
+
+	@Override
+	public void startWaitForConn() {
+		this.client.connectUntilSuccess();
+	}
 }
