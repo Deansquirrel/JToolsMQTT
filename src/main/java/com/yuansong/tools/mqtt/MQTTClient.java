@@ -138,7 +138,7 @@ class MQTTClient {
 				while(true) {
 					//等待特定时间
 					try {
-						Thread.sleep(Global.reconnectInterval);
+						Thread.sleep(Global.reconnectInterval * 1000L);
 					} catch (InterruptedException e) {}
 					if(client.isConnected()) {
 						//已连接则退出
@@ -216,7 +216,7 @@ class MQTTClient {
 	 */
 	public void subscribe(String topic, int qos) throws MqttException {
 		this.client.subscribe(topic, qos);
-		logger.info(MessageFormat.format("mqt subscribe topic: {0}, qos: {1}", topic, qos));
+		logger.info(MessageFormat.format("mqtt subscribe topic: {0}, qos: {1}", topic, qos));
 	}
 	
 	/**
@@ -226,7 +226,7 @@ class MQTTClient {
 	 */
 	public void unsubscribe(String topic) throws MqttException {
 		this.client.unsubscribe(topic);
-		logger.info(MessageFormat.format("mqt unsubscribe topic: {0}", topic));
+		logger.info(MessageFormat.format("mqtt unsubscribe topic: {0}", topic));
 	}
 	
 	/**
@@ -262,6 +262,11 @@ class MQTTClient {
 			@Override
 			public void connectionLost(Throwable cause) {
 				logger.warn("mqtt connection lost");
+				if(Global.callback != null) {
+					try {
+						Global.callback.connectionLost(cause);
+					} catch(Exception e) {}
+				}
 				MQTTClient client = MQTTClient.getInstance();
 				client.connectUntilSuccess();
 			}
