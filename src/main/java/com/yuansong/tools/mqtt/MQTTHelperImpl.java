@@ -10,11 +10,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MQTTHelperImpl implements MQTTHelper {
+class MQTTHelperImpl implements IMQTTHelper {
 	
 	private MQTTClient client = MQTTClient.getInstance();
 	
-	private static final Logger logger = LoggerFactory.getLogger(MQTTHelper.class);
+	private static final Logger logger = LoggerFactory.getLogger(IMQTTHelper.class);
 
 	@Override
 	public void updateConfig(MQTTConfig config) {
