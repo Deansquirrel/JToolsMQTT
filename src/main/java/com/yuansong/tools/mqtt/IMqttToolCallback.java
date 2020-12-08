@@ -2,7 +2,7 @@ package com.yuansong.tools.mqtt;
 
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-public interface MQTTCallback {
+public interface IMqttToolCallback {
 	
 	/**
 	 * 连接断开
@@ -27,5 +27,5 @@ public interface MQTTCallback {
 	 * 用户名密码错误的处理过程
 	 */
 	public void handleConnectFailedAuthenticationError();
-	
+
 }

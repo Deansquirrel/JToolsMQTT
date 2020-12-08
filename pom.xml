@@ -5,11 +5,11 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.3.4.RELEASE</version>
+    <version>2.3.6.RELEASE</version>
   </parent>
   <groupId>com.yuansong.tools</groupId>
   <artifactId>tools-mqtt</artifactId>
-  <!-- <version>0.0.2</version>--> 
+  <!-- <version>0.0.3</version>--> 
   <version>0.0.0</version> 
   <name>tools-mqtt</name>
   <description>tools mqtt</description>

@@ -1,7 +1,6 @@
 package com.yuansong.tools.mqtt;
 
-public class MQTTConfig {
-	
+public class MqttToolConfig {
 	private String username;
 	private String password;
 	private String hostUrl;

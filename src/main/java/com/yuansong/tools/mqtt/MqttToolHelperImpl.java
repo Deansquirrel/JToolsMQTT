@@ -10,19 +10,19 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-class MQTTHelperImpl implements IMQTTHelper {
+public class MqttToolHelperImpl implements IMqttToolHelper {
 	
-	private MQTTClient client = MQTTClient.getInstance();
+	private MqttToolClient client = MqttToolClient.getInstance();
 	
-	private static final Logger logger = LoggerFactory.getLogger(IMQTTHelper.class);
+	private static final Logger logger = LoggerFactory.getLogger(MqttToolHelperImpl.class);
 
 	@Override
-	public void updateConfig(MQTTConfig config) {
+	public void updateConfig(MqttToolConfig config) {
 		this.client.updateConfig(config);
 	}
-	
+
 	@Override
-	public void updateCallback(MQTTCallback callback) {
+	public void updateCallback(IMqttToolCallback callback) {
 		Global.callback = callback;
 	}
 
@@ -37,7 +37,13 @@ class MQTTHelperImpl implements IMQTTHelper {
 	}
 
 	@Override
-	public void publish(String topic, String data, int qos, boolean retained) throws MqttException, MqttPersistenceException, Exception{
+	public void startWaitForConn() {
+		this.client.connectUntilSuccess();
+	}
+
+	@Override
+	public void publish(String topic, String data, int qos, boolean retained)
+			throws MqttException, MqttPersistenceException, Exception {
 		if(!this.client.isConnected()) {
 			this.client.connect();
 		}
@@ -71,8 +77,4 @@ class MQTTHelperImpl implements IMQTTHelper {
 		}
 	}
 
-	@Override
-	public void startWaitForConn() {
-		this.client.connectUntilSuccess();
-	}
 }

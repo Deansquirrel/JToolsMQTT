@@ -16,15 +16,15 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class MQTTClient {
+class MqttToolClient {
 	
-	private static final Logger logger = LoggerFactory.getLogger(MQTTClient.class);
+	private static final Logger logger = LoggerFactory.getLogger(MqttToolClient.class);
 	
 	private MqttClient client = null;
-	private static volatile MQTTClient mqttClient = null;
+	private static volatile MqttToolClient mqttClient = null;
 	
-	private MQTTConfig config = null;
-	
+	private MqttToolConfig config = null;
+
 	//是否有等待连接线程
 	private volatile boolean hasWaitForConn = false;
 	
@@ -32,18 +32,18 @@ class MQTTClient {
 	 * 获取唯一对象
 	 * @return
 	 */
-	public static MQTTClient getInstance() {
+	public static MqttToolClient getInstance() {
 		if(mqttClient == null) {
-			synchronized (MQTTClient.class ) {
+			synchronized (MqttToolClient.class ) {
 				if(mqttClient == null) {
-					mqttClient = new MQTTClient();
+					mqttClient = new MqttToolClient();
 				}
 			}
 		}
 		return mqttClient;
 	}
 	
-	private MQTTClient() {	}
+	private MqttToolClient() {	}
 	
 	/**
 	 * 是否就绪（可连接）
@@ -57,7 +57,7 @@ class MQTTClient {
 	 * 更新配置
 	 * @param config
 	 */
-	public void updateConfig(MQTTConfig config) {
+	public void updateConfig(MqttToolConfig config) {
 		this.config = config;
 	}
 	
@@ -122,6 +122,60 @@ class MQTTClient {
 	}
 	
 	/**
+	 * 获取MqttClient连接配置
+	 * @return
+	 */
+	private MqttConnectOptions getMqttConnectOptions() {
+		if(this.config == null) {
+			return null;
+		}
+		MqttConnectOptions option = new MqttConnectOptions();
+		option.setCleanSession(true);
+		if(this.config.getUsername() != null) {
+			option.setUserName(this.config.getUsername());			
+		}
+		if(this.config.getPassword() != null) {
+			option.setPassword(this.config.getPassword().toCharArray());			
+		}
+		if(this.config.getCompletionTimeout() != null) {
+			option.setConnectionTimeout(this.config.getCompletionTimeout());
+		}
+		option.setKeepAliveInterval(Global.reconnectInterval);
+		option.setAutomaticReconnect(false);
+		return option;
+	}
+	
+	/**
+	 * 获取MqttCallback回调配置
+	 * @return
+	 */
+	private MqttCallback getMqttCallback() {
+		return new MqttCallback() {
+			@Override
+			public void connectionLost(Throwable cause) {
+				logger.warn("mqtt connection lost");
+				if(Global.callback != null) {
+					try {
+						Global.callback.connectionLost(cause);
+					} catch(Exception e) {}
+				}
+				MqttToolClient client = MqttToolClient.getInstance();
+				client.connectUntilSuccess();
+			}
+			
+			@Override
+			public void messageArrived(String topic, MqttMessage message) throws Exception {
+				if(Global.callback != null) {
+					Global.callback.messageArrived(topic, message);
+				}
+			}
+			
+			@Override
+			public void deliveryComplete(IMqttDeliveryToken token) {}
+		};
+	}
+	
+	/**
 	 * 启动线程，轮询配置
 	 * 线程停止条件：直至发现有一次成功的连接
 	 */
@@ -134,24 +188,19 @@ class MQTTClient {
 
 			@Override
 			public void run() {
-				MQTTClient client = MQTTClient.getInstance();
+				MqttToolClient client = MqttToolClient.getInstance();
 				while(true) {
-					//等待特定时间
 					try {
 						Thread.sleep(Global.reconnectInterval * 1000L);
 					} catch (InterruptedException e) {}
 					if(client.isConnected()) {
-						//已连接则退出
-						continue;
+						break;
 					}
 					if(!client.isReady()) {
-						//连接准备未就绪
 						continue;
 					}
-					//连接已就绪，发起连接
 					try {
 						client.connect();
-						break;
 					} catch (MqttSecurityException e) {
 						if(MqttSecurityException.REASON_CODE_FAILED_AUTHENTICATION == e.getReasonCode()) {
 							if(Global.callback != null) {
@@ -171,7 +220,7 @@ class MQTTClient {
 		t.start();
 		logger.debug("start connect until success");
 	}
-
+	
 	/**
 	 * 发布消息
 	 * @param topic
@@ -227,60 +276,6 @@ class MQTTClient {
 	public void unsubscribe(String topic) throws MqttException {
 		this.client.unsubscribe(topic);
 		logger.info(MessageFormat.format("mqtt unsubscribe topic: {0}", topic));
-	}
-	
-	/**
-	 * 获取MqttClient连接配置
-	 * @return
-	 */
-	private MqttConnectOptions getMqttConnectOptions() {
-		if(this.config == null) {
-			return null;
-		}
-		MqttConnectOptions option = new MqttConnectOptions();
-		option.setCleanSession(true);
-		if(this.config.getUsername() != null) {
-			option.setUserName(this.config.getUsername());			
-		}
-		if(this.config.getPassword() != null) {
-			option.setPassword(this.config.getPassword().toCharArray());			
-		}
-		if(this.config.getCompletionTimeout() != null) {
-			option.setConnectionTimeout(this.config.getCompletionTimeout());
-		}
-		option.setKeepAliveInterval(Global.reconnectInterval);
-		option.setAutomaticReconnect(false);
-		return option;
-	}
-	
-	/**
-	 * 获取MqttCallback回调配置
-	 * @return
-	 */
-	private MqttCallback getMqttCallback() {
-		return new MqttCallback() {
-			@Override
-			public void connectionLost(Throwable cause) {
-				logger.warn("mqtt connection lost");
-				if(Global.callback != null) {
-					try {
-						Global.callback.connectionLost(cause);
-					} catch(Exception e) {}
-				}
-				MQTTClient client = MQTTClient.getInstance();
-				client.connectUntilSuccess();
-			}
-			
-			@Override
-			public void messageArrived(String topic, MqttMessage message) throws Exception {
-				if(Global.callback != null) {
-					Global.callback.messageArrived(topic, message);
-				}
-			}
-			
-			@Override
-			public void deliveryComplete(IMqttDeliveryToken token) {}
-		};
 	}
 	
 }

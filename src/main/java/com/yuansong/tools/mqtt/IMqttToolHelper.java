@@ -4,19 +4,19 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.MqttSecurityException;
 
-public interface IMQTTHelper {
-	
+public interface IMqttToolHelper {
+
 	/**
 	 * 更新配置
 	 * @param config 连接配置
 	 */
-	public void updateConfig(MQTTConfig config);
+	public void updateConfig(MqttToolConfig config);
 	
 	/**
 	 * 更新回调
 	 * @param callback
 	 */
-	public void updateCallback(MQTTCallback callback);
+	public void updateCallback(IMqttToolCallback callback);
 	
 	/**
 	 * 是否已连接
@@ -45,7 +45,7 @@ public interface IMQTTHelper {
 	 * @throws MqttException
 	 * @throws Exception
 	 */
-	default public void connect(MQTTConfig config) throws MqttSecurityException, MqttException, Exception {
+	default public void connect(MqttToolConfig config) throws MqttSecurityException, MqttException, Exception {
 		this.updateConfig(config);
 		this.connect();
 	}
@@ -99,5 +99,5 @@ public interface IMQTTHelper {
 	 * @throws MqttException
 	 */
 	public void unsubscribe(String topic) throws MqttException;
-
+	
 }
