@@ -68,8 +68,16 @@ public class MqttToolClient {
 		this.config.afterReconnect();
 	}
 	
+	/**
+	 * 发布消息
+	 * @param topic
+	 * @param message
+	 * @throws MqttPersistenceException
+	 * @throws MqttException
+	 */
 	public void publish(String topic, MqttMessage message) throws MqttPersistenceException, MqttException {
 		this.client.publish(topic, message);
+		logger.debug("public msg " + topic + " " + (new String(message.getPayload())));
 	}
 	
 	/**
@@ -83,6 +91,7 @@ public class MqttToolClient {
 	 */
 	public void publish(String topic, byte[] payload,int qos, boolean retained) throws MqttPersistenceException, MqttException {
 		this.client.publish(topic, payload, qos, retained);
+		logger.debug("public msg " + topic + " " + (new String(payload)));
 	}
 	
 	private MqttCallback getMqttCallback() {
@@ -130,12 +139,12 @@ public class MqttToolClient {
 		return option;
 	}
 	
-	private IRunUntillSuccess getReconnectJob() {
+	public IRunUntillSuccess getReconnectJob() {
 		return new IRunUntillSuccess() {
 
 			@Override
 			public boolean getPremiss() {
-				return true;
+				return config.getPremiss();
 			}
 
 			@Override
