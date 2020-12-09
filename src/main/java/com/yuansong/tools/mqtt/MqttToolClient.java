@@ -6,77 +6,39 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.MqttSecurityException;
-import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-class MqttToolClient {
+import com.yuansong.tools.common.ExceptionTool;
+import com.yuansong.tools.common.IRunUntillSuccess;
+import com.yuansong.tools.mqtt.config.IMqttToolConfig;
+
+@Component
+public class MqttToolClient {
 	
 	private static final Logger logger = LoggerFactory.getLogger(MqttToolClient.class);
-	
-	private MqttClient client = null;
-	private static volatile MqttToolClient mqttClient = null;
-	
-	private MqttToolConfig config = null;
 
-	//是否有等待连接线程
-	private volatile boolean hasWaitForConn = false;
+	private MqttClient client = null;;
 	
-	/**
-	 * 获取唯一对象
-	 * @return
-	 */
-	public static MqttToolClient getInstance() {
-		if(mqttClient == null) {
-			synchronized (MqttToolClient.class ) {
-				if(mqttClient == null) {
-					mqttClient = new MqttToolClient();
-				}
-			}
-		}
-		return mqttClient;
-	}
+	@Autowired
+	private IMqttToolConfig config;
 	
-	private MqttToolClient() {	}
-	
-	/**
-	 * 是否就绪（可连接）
-	 * @return
-	 */
-	public boolean isReady() {
-		return this.config != null;
-	}
-	
-	/**
-	 * 更新配置
-	 * @param config
-	 */
-	public void updateConfig(MqttToolConfig config) {
-		this.config = config;
-	}
-	
-	/**
-	 * 是否已连接
-	 * @return
-	 */
 	public boolean isConnected() {
 		if(this.client == null) {
 			return false;
 		} else {
-			return this.client.isConnected();
+			return this.client.isConnected();			
 		}
 	}
 	
-	/**
-	 * 断开连接
-	 */
-	public void disconnect() {
+	public synchronized void disconnect() {
 		if(this.client == null) {
 			return;
 		}
@@ -91,191 +53,133 @@ class MqttToolClient {
 		this.client = null;
 	}
 	
-	/**
-	 * 连接
-	 * @throws MqttSecurityException
-	 * @throws MqttException
-	 * @throws Exception
-	 */
-	public synchronized void connect() throws MqttSecurityException, MqttException, Exception {
-		if(!this.isReady()) {
-			logger.warn("config is null");
-			throw new Exception("not ready, config is null");
+	public synchronized void connect() throws MqttException {
+		if(this.client != null) {
+			this.disconnect();
 		}
-		
-		if(this.client != null && this.client.isConnected()) {
-			return;
-		}
-		this.disconnect();
-		this.client = new MqttClient(this.config.getHostUrl(), this.config.getClientId(), new MemoryPersistence());
+		this.client = new MqttClient(config.getServerURI(), config.getClientId(), new MemoryPersistence());
 		this.client.setCallback(this.getMqttCallback());
-		
-		MqttConnectOptions option = this.getMqttConnectOptions();
-		
-		this.client.connect(option);
+		this.client.connect(this.getMqttConnectOptions());
 		
 		logger.info("mqtt connected");
+		//重连后订阅主题
+		subscribeTopics();
 		//调用连接后处理
-		if(Global.callback != null) {
-			Global.callback.afterReconnect();
-		}
+		this.config.afterReconnect();
+	}
+	
+	public void publish(String topic, MqttMessage message) throws MqttPersistenceException, MqttException {
+		this.client.publish(topic, message);
 	}
 	
 	/**
-	 * 获取MqttClient连接配置
-	 * @return
+	 * 发布消息
+	 * @param topic
+	 * @param payload
+	 * @param qos
+	 * @param retained
+	 * @throws MqttException 
+	 * @throws MqttPersistenceException 
 	 */
+	public void publish(String topic, byte[] payload,int qos, boolean retained) throws MqttPersistenceException, MqttException {
+		this.client.publish(topic, payload, qos, retained);
+	}
+	
+	private MqttCallback getMqttCallback() {
+		return new MqttCallback() {
+
+			@Override
+			public void connectionLost(Throwable cause) {
+				try {
+					config.connectionLost(cause);					
+				} catch(Exception e) {
+					logger.error(ExceptionTool.getStackTrace(e));
+				}
+				getReconnectJob().start(config.getReconnectInterval() * 1000);
+			}
+
+			@Override
+			public void messageArrived(String topic, MqttMessage message) throws Exception {
+				config.messageArrived(topic, new String(message.getPayload()));
+			}
+
+			@Override
+			public void deliveryComplete(IMqttDeliveryToken token) {
+
+			}
+			
+		};
+	}
+	
 	private MqttConnectOptions getMqttConnectOptions() {
-		if(this.config == null) {
-			return null;
-		}
 		MqttConnectOptions option = new MqttConnectOptions();
 		option.setCleanSession(true);
-		if(this.config.getUsername() != null) {
-			option.setUserName(this.config.getUsername());			
+		if(this.config.getUsername() != null && !"".equals(this.config.getUsername())) {
+			option.setUserName(this.config.getUsername());
 		}
-		if(this.config.getPassword() != null) {
-			option.setPassword(this.config.getPassword().toCharArray());			
+		if(this.config.getPassword() != null && !"".equals(this.config.getPassword())) {
+			option.setPassword(this.config.getPassword().toCharArray());
 		}
 		if(this.config.getCompletionTimeout() != null) {
 			option.setConnectionTimeout(this.config.getCompletionTimeout());
 		}
-		option.setKeepAliveInterval(Global.reconnectInterval);
-		option.setAutomaticReconnect(false);
+		if(this.config.getReconnectInterval() != null) {
+			option.setKeepAliveInterval(this.config.getReconnectInterval());
+			option.setAutomaticReconnect(false);
+		}
 		return option;
 	}
 	
-	/**
-	 * 获取MqttCallback回调配置
-	 * @return
-	 */
-	private MqttCallback getMqttCallback() {
-		return new MqttCallback() {
+	private IRunUntillSuccess getReconnectJob() {
+		return new IRunUntillSuccess() {
+
 			@Override
-			public void connectionLost(Throwable cause) {
-				logger.warn("mqtt connection lost");
-				if(Global.callback != null) {
-					try {
-						Global.callback.connectionLost(cause);
-					} catch(Exception e) {}
-				}
-				MqttToolClient client = MqttToolClient.getInstance();
-				client.connectUntilSuccess();
+			public boolean getPremiss() {
+				return true;
 			}
-			
+
 			@Override
-			public void messageArrived(String topic, MqttMessage message) throws Exception {
-				if(Global.callback != null) {
-					Global.callback.messageArrived(topic, message);
+			public void job() throws Exception {
+				try {
+					Thread.sleep(config.getReconnectInterval() * 1000);					
+				} catch (InterruptedException e) {}
+				if(isConnected()) {
+					return;
+				}
+				try {
+					connect();					
+				} catch (MqttSecurityException e) {
+					config.handleConnectError(e);
+					throw e;
+				} catch (MqttException e) {
+					config.handleConnectError(e);
+					throw e;
+				} catch (Exception e) {
+					config.handleConnectError(e);
+					throw e;
 				}
 			}
-			
-			@Override
-			public void deliveryComplete(IMqttDeliveryToken token) {}
 		};
 	}
 	
 	/**
-	 * 启动线程，轮询配置
-	 * 线程停止条件：直至发现有一次成功的连接
+	 * 订阅主题
 	 */
-	public void connectUntilSuccess() {
-		if(this.hasWaitForConn) {
+	private void subscribeTopics() {
+		if(!isConnected()) {
 			return;
 		}
-		this.hasWaitForConn = true;
-		Thread t = new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				MqttToolClient client = MqttToolClient.getInstance();
-				while(true) {
-					try {
-						Thread.sleep(Global.reconnectInterval * 1000L);
-					} catch (InterruptedException e) {}
-					if(client.isConnected()) {
-						break;
-					}
-					if(!client.isReady()) {
-						continue;
-					}
-					try {
-						client.connect();
-					} catch (MqttSecurityException e) {
-						if(MqttSecurityException.REASON_CODE_FAILED_AUTHENTICATION == e.getReasonCode()) {
-							if(Global.callback != null) {
-								Global.callback.handleConnectFailedAuthenticationError();
-							}
-						}
-						continue;
-					} catch (MqttException e) {
-						continue;
-					} catch (Exception e) {
-						continue;
-					}
-				}
-				hasWaitForConn = false;
-			}
-		});
-		t.start();
-		logger.debug("start connect until success");
-	}
-	
-	/**
-	 * 发布消息
-	 * @param topic
-	 * @param data
-	 * @throws MqttException
-	 * @throws MqttPersistenceException
-	 */
-	public void publish(String topic, String data) 
-			throws MqttException, MqttPersistenceException {
-		this.publish(topic, data, 0, false);
-	}
-	
-	/**
-	 * 发布消息
-	 * @param topic
-	 * @param data
-	 * @param qos
-	 * @param retained
-	 * @throws MqttException
-	 * @throws MqttPersistenceException
-	 */
-	public void publish(String topic, String data, int qos, boolean retained) 
-			throws MqttException, MqttPersistenceException {
-		if(data == null) {
-			data = "";
+		if(config.getSubscribeList() == null) {
+			return;
 		}
-		MqttMessage message = new MqttMessage();
-		message.setQos(qos);
-		message.setRetained(retained);
-		message.setPayload(data.getBytes());
-		MqttTopic mqttTopic = this.client.getTopic(topic);
-		MqttDeliveryToken token;
-		token = mqttTopic.publish(message);
-		token.waitForCompletion();		
+		for(String topic : config.getSubscribeList()) {
+			try {
+				this.client.subscribe(topic);
+				logger.info("mqtt subscribe " + topic);
+			} catch (MqttException e) {
+				logger.warn(MessageFormat.format("subscribe topic error, topic: {0}, error: {1}", topic, ExceptionTool.getStackTrace(e)));
+			}
+		}
 	}
-	
-	/**
-	 * 订阅消息
-	 * @param topic
-	 * @param qos
-	 * @throws MqttException
-	 */
-	public void subscribe(String topic, int qos) throws MqttException {
-		this.client.subscribe(topic, qos);
-		logger.info(MessageFormat.format("mqtt subscribe topic: {0}, qos: {1}", topic, qos));
-	}
-	
-	/**
-	 * 取消订阅
-	 * @param topic
-	 * @throws MqttException
-	 */
-	public void unsubscribe(String topic) throws MqttException {
-		this.client.unsubscribe(topic);
-		logger.info(MessageFormat.format("mqtt unsubscribe topic: {0}", topic));
-	}
-	
+
 }
