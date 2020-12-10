@@ -30,6 +30,9 @@ public class MqttToolClient {
 	@Autowired
 	private IMqttToolConfig config;
 	
+	@Autowired
+	private MqttToolMessageHandler messageHandler;
+	
 	public boolean isConnected() {
 		if(this.client == null) {
 			return false;
@@ -109,7 +112,8 @@ public class MqttToolClient {
 
 			@Override
 			public void messageArrived(String topic, MqttMessage message) throws Exception {
-				config.messageArrived(topic, new String(message.getPayload()));
+				messageHandler.messageArrived(topic, message);
+//				config.messageArrived(topic, new String(message.getPayload()));
 			}
 
 			@Override
