@@ -107,7 +107,7 @@ public class MqttToolClient {
 				} catch(Exception e) {
 					logger.error(ExceptionTool.getStackTrace(e));
 				}
-				getReconnectJob().start(config.getReconnectInterval() * 1000);
+				getReconnectJob().startThread(config.getReconnectInterval() * 1000);
 			}
 
 			@Override
@@ -171,6 +171,14 @@ public class MqttToolClient {
 					config.handleConnectError(e);
 					throw e;
 				}
+			}
+
+			@Override
+			public void prefixJob() {
+			}
+
+			@Override
+			public void suffixJob() {
 			}
 		};
 	}

@@ -9,8 +9,8 @@
   </parent>
   <groupId>com.yuansong.tools</groupId>
   <artifactId>tools-mqtt</artifactId>
-  <!--<version>0.0.5</version> -->
-   <version>0.0.0</version> 
+  <version>0.0.6</version>
+  <!--<version>0.0.0</version> -->
   <name>tools-mqtt</name>
   <description>tools mqtt</description>
 
@@ -56,10 +56,10 @@
     </dependency>
     <!-- MQTT End -->
     <dependency>
-                <groupId>com.yuansong.tools</groupId>
-                <artifactId>tools-common</artifactId>
-                <version>0.0.2</version>
-            </dependency>
+      <groupId>com.yuansong.tools</groupId>
+      <artifactId>tools-common</artifactId>
+      <version>0.0.3</version>
+    </dependency>
 
   </dependencies>
 

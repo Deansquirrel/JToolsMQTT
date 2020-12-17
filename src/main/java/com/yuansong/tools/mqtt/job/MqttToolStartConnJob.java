@@ -19,7 +19,17 @@ public class MqttToolStartConnJob implements IRunUntillSuccess {
 
 	@Override
 	public void job() throws Exception {
-		mqttToolClient.getReconnectJob().start();
+		mqttToolClient.getReconnectJob().startThread();
+	}
+
+	@Override
+	public void prefixJob() {
+		
+	}
+
+	@Override
+	public void suffixJob() {
+		
 	}
 
 }

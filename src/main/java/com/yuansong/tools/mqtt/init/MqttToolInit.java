@@ -14,7 +14,7 @@ public class MqttToolInit implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-		this.mqttToolStartConnJob.start();
+		this.mqttToolStartConnJob.startThread();
 	}
 
 }
